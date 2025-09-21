@@ -8,6 +8,13 @@
         <option value="done">Done</option>
       </select>
     </div>
+    <div class="mb-3">
+      <div class="input-group">
+        <input type="text" class="form-control" placeholder="New task title" v-model="newTaskTitle" @keyup.enter="createTask">
+        <button class="btn btn-primary" @click="createTask">Add Task</button>
+      </div>
+    </div>
+
     <div v-if="tasks.length" class="table-responsive">
       <table class="table table-sm table-hover">
         <thead>
@@ -89,6 +96,7 @@ export default {
       editedTask: {}, // To hold the data of the task being edited
       showDeleteTaskModal: false, // Control visibility of delete confirmation modal
       taskToDeleteId: null, // Store the ID of the task to be deleted
+      newTaskTitle: '', // New data property for the new task title
     };
   },
   setup() {
@@ -122,6 +130,51 @@ export default {
           throw new Error('Failed to fetch tasks');
         }
         this.tasks = await response.json();
+      } catch (error) {
+        this.toast.error(error.message);
+      }
+    },
+    async createTask() {
+      if (!this.newTaskTitle.trim()) {
+        this.toast.error('Task title cannot be empty.');
+        return;
+      }
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('http://localhost:3000/api/tasks', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: this.newTaskTitle,
+            project_id: this.projectId, // Changed to snake_case
+            status: 'todo', // Added default status
+          }),
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          this.toast.error('Session expired. Please login again.');
+          this.authStore.logout();
+          return;
+        }
+
+        if (!response.ok) {
+          let errorMessage = 'Failed to create task';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (e) {
+            // Ignore if the error response is not JSON
+          }
+          throw new Error(errorMessage);
+        }
+
+        const newTask = await response.json();
+        this.tasks.push(newTask);
+        this.newTaskTitle = ''; // Clear the input field
+        this.toast.success('Task created successfully');
       } catch (error) {
         this.toast.error(error.message);
       }
@@ -166,7 +219,7 @@ export default {
         // Find the index of the updated task and replace it
         const index = this.tasks.findIndex(t => t.id === this.editedTask.id);
         if (index !== -1) {
-          this.$set(this.tasks, index, { ...this.editedTask });
+          this.tasks[index] = { ...this.editedTask };
         }
 
         this.toast.success('Task updated successfully');

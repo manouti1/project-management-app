@@ -9,7 +9,6 @@ This is the backend for a simple project management tool, built with Node.js, Ex
 - Task Management (CRUD operations)
 - JWT-based Authentication
 - Project Authorization (only creator can edit/delete projects)
-- Task Authorization (only creator can edit/delete tasks)
 
 ## Technologies Used
 
@@ -120,7 +119,6 @@ The API endpoints are documented in the Postman collection. You can import the `
 ## Authorization
 
 -   **Project Ownership:** Only the user who created a specific project can update or delete that project. Attempts by other users will result in a `403 Forbidden` error.
--   **Task Ownership:** Only the user who created a specific task can update or delete that task. Attempts by other users will result in a `403 Forbidden` error.
 
 ## Postman Collection
 

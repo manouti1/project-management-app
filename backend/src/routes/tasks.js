@@ -7,7 +7,6 @@ const {
   deleteTask,
 } = require('../controllers/task.js');
 const auth = require('../middleware/auth.js');
-const isTaskCreator = require('../middleware/isTaskCreator.js'); // Import new middleware
 const { createTaskValidator, updateTaskValidator } = require('../validators/task.js');
 const { validationResult } = require('express-validator');
 
@@ -24,7 +23,7 @@ const validate = (req, res, next) => {
 router.get('/', auth, getAllTasks);
 router.get('/:id', auth, getTaskById);
 router.post('/', auth, createTaskValidator, validate, createTask);
-router.put('/:id', auth, isTaskCreator, updateTaskValidator, validate, updateTask); // Apply isTaskCreator
-router.delete('/:id', auth, isTaskCreator, deleteTask); // Apply isTaskCreator
+router.put('/:id', auth, updateTaskValidator, validate, updateTask);
+router.delete('/:id', auth, deleteTask);
 
 module.exports = router;
