@@ -26,6 +26,7 @@
 
 <script>
 import { useToast } from 'vue-toastification';
+import { useAuthStore } from '../stores/auth'; // Import the auth store
 
 export default {
   data() {
@@ -38,7 +39,8 @@ export default {
   },
   setup() {
     const toast = useToast();
-    return { toast };
+    const authStore = useAuthStore(); // Initialize the auth store
+    return { toast, authStore }; // Make authStore available in the component
   },
   methods: {
     async login() {
@@ -63,7 +65,11 @@ export default {
           throw new Error(errorMessage);
         }
         const data = await response.json();
-        localStorage.setItem('token', data.token);
+        this.authStore.setToken(data.token);
+        // Assuming the backend also returns user data upon login
+        if (data.user) {
+          this.authStore.setUser(data.user);
+        }
         this.$router.push('/');
         this.toast.success('Logged in successfully');
       } catch (error) {

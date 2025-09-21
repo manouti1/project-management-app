@@ -21,19 +21,16 @@
 </template>
 
 <script>
+import { useAuthStore } from './stores/auth';
+import { mapState, mapActions } from 'pinia';
+
 export default {
   name: 'App',
   computed: {
-    isLoggedIn() {
-      return !!localStorage.getItem('token');
-    }
+    ...mapState(useAuthStore, ['isLoggedIn']),
   },
   methods: {
-    logout() {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      this.$router.push('/login');
-    }
+    ...mapActions(useAuthStore, ['logout']),
   }
 }
 </script>
