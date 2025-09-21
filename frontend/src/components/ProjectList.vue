@@ -15,12 +15,35 @@
       </div>
       <button type="submit" class="btn btn-success">Create</button>
     </form>
-    <div class="project-list">
-      <div v-for="project in projects" :key="project.id" class="card mb-3">
-        <div class="card-body">
-          <h2 class="card-title">{{ project.name }}</h2>
-          <p class="card-text">{{ project.description }}</p>
-          <button class="btn btn-sm btn-outline-primary mb-2" @click="toggleCreateTaskForm(project.id)">Create Task</button>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+      <div class="col" v-for="project in projects" :key="project.id">
+        <div class="card h-100"> <!-- Added h-100 for consistent card height -->
+          <div class="card-body">
+            <div v-if="editingProjectId === project.id">
+              <form @submit.prevent="updateProject" class="mb-3">
+                <div class="mb-3">
+                  <label for="editName" class="form-label">Name:</label>
+                  <input type="text" id="editName" class="form-control" v-model="editedProject.name" required>
+                </div>
+                <div class="mb-3">
+                  <label for="editDescription" class="form-label">Description:</label>
+                  <textarea id="editDescription" class="form-control" v-model="editedProject.description" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-success btn-sm me-2">Save</button>
+                <button type="button" class="btn btn-secondary btn-sm" @click="cancelEdit">Cancel</button>
+              </form>
+            </div>
+            <div v-else>
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h2 class="card-title mb-0">{{ project.name }}</h2>
+                <div>
+                  <button class="btn btn-sm btn-secondary me-2" @click="editProject(project)">Edit</button>
+                  <button class="btn btn-sm btn-danger" @click="deleteProject(project.id)">Delete Project</button>
+                </div>
+              </div>
+              <p class="card-text">{{ project.description }}</p>
+              <button class="btn btn-sm btn-outline-primary mb-2" @click="toggleCreateTaskForm(project.id)">Create Task</button>
+            </div>
           <form v-if="showCreateTaskForm[project.id]" @submit.prevent="createTask(project.id)" class="card card-body my-3">
             <div class="mb-2">
               <label for="taskTitle" class="form-label">Title:</label>
@@ -41,20 +64,41 @@
             <button type="submit" class="btn btn-sm btn-success">Create Task</button>
           </form>
           <TaskList :project-id="project.id" />
-        </div>
-      </div>
-    </div>
+        </div> <!-- Closes card-body -->
+      </div> <!-- Closes card h-100 -->
+    </div> <!-- Closes col -->
+  </div> <!-- Closes row -->
     <div class="pagination d-flex justify-content-center mt-3" v-if="totalPages > 1">
       <button class="btn btn-secondary mx-1" @click="prevPage" :disabled="currentPage === 1">Previous</button>
       <span>Page {{ currentPage }} of {{ totalPages }}</span>
       <button class="btn btn-secondary mx-1" @click="nextPage" :disabled="currentPage === totalPages">Next</button>
     </div>
+  <!-- Delete Project Confirmation Modal -->
+    <div class="modal fade" :class="{ 'show': showDeleteProjectModal }" :style="{ display: showDeleteProjectModal ? 'block' : 'none' }" tabindex="-1" aria-labelledby="deleteProjectModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="deleteProjectModalLabel">Confirm Delete Project</h5>
+            <button type="button" class="btn-close" @click="showDeleteProjectModal = false" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            Are you sure you want to delete this project? This will also delete all associated tasks.
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="showDeleteProjectModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @click="confirmDeleteProject">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div v-if="showDeleteProjectModal" class="modal-backdrop fade show"></div>
   </div>
 </template>
 
 <script>
 import TaskList from './TaskList.vue';
 import { useToast } from 'vue-toastification';
+import { useAuthStore } from '../stores/auth'; // Import the auth store
 
 export default {
   components: {
@@ -68,6 +112,8 @@ export default {
         name: '',
         description: '',
       },
+      editingProjectId: null, // To track which project is being edited
+      editedProject: {}, // To hold the data of the project being edited
       showCreateTaskForm: {}, // To manage visibility of task creation form for each project
       newTask: {
         title: '',
@@ -77,11 +123,14 @@ export default {
       currentPage: 1,
       projectsPerPage: 5, // You can adjust this value
       totalProjects: 0,
+      showDeleteProjectModal: false, // Control visibility of delete confirmation modal
+      projectToDeleteId: null, // Store the ID of the project to be deleted
     };
   },
   setup() {
     const toast = useToast();
-    return { toast };
+    const authStore = useAuthStore(); // Initialize the auth store
+    return { toast, authStore }; // Make authStore available in the component
   },
   async created() {
     await this.fetchProjects();
@@ -112,8 +161,7 @@ export default {
         });
         if (response.status === 401 || response.status === 403) {
           this.toast.error('Session expired. Please login again.');
-          localStorage.removeItem('token');
-          this.$router.push('/login');
+          this.authStore.logout();
           return;
         }
         if (!response.ok) {
@@ -146,8 +194,7 @@ export default {
         });
         if (response.status === 401 || response.status === 403) {
           this.toast.error('Session expired. Please login again.');
-          localStorage.removeItem('token');
-          this.$router.push('/login');
+          this.authStore.logout();
           return;
         }
         if (!response.ok) {
@@ -182,8 +229,7 @@ export default {
         });
         if (response.status === 401 || response.status === 403) {
           this.toast.error('Session expired. Please login again.');
-          localStorage.removeItem('token');
-          this.$router.push('/login');
+          this.authStore.logout();
           return;
         }
         if (!response.ok) {
@@ -220,6 +266,97 @@ export default {
       if (this.currentPage > 1) {
         this.currentPage--;
         this.fetchProjects();
+      }
+    },
+    editProject(project) {
+      this.editingProjectId = project.id;
+      this.editedProject = { ...project }; // Create a copy to avoid direct mutation
+    },
+    cancelEdit() {
+      this.editingProjectId = null;
+      this.editedProject = {};
+    },
+    async updateProject() {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:3000/api/projects/${this.editedProject.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(this.editedProject),
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          this.toast.error('Session expired. Please login again.');
+          this.authStore.logout();
+          return;
+        }
+
+        if (!response.ok) {
+          let errorMessage = 'Failed to update project';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (e) {
+            // Ignore if the error response is not JSON
+          }
+          throw new Error(errorMessage);
+        }
+
+        // Find the index of the updated project and replace it
+        const index = this.projects.findIndex(p => p.id === this.editedProject.id);
+        if (index !== -1) {
+          this.$set(this.projects, index, { ...this.editedProject });
+        }
+
+        this.toast.success('Project updated successfully');
+        this.cancelEdit(); // Exit edit mode
+      } catch (error) {
+        this.toast.error(error.message);
+      }
+    },
+    deleteProject(projectId) {
+      this.projectToDeleteId = projectId;
+      this.showDeleteProjectModal = true;
+    },
+    async confirmDeleteProject() {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:3000/api/projects/${this.projectToDeleteId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          this.toast.error('Session expired. Please login again.');
+          this.authStore.logout();
+          return;
+        }
+
+        if (!response.ok) {
+          let errorMessage = 'Failed to delete project';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (e) {
+            // Ignore if the error response is not JSON
+          }
+          throw new Error(errorMessage);
+        }
+
+        this.projects = this.projects.filter(p => p.id !== this.projectToDeleteId);
+        this.toast.success('Project deleted successfully');
+        // Re-fetch projects to update pagination and total count if necessary
+        await this.fetchProjects();
+      } catch (error) {
+        this.toast.error(error.message);
+      } finally {
+        this.showDeleteProjectModal = false;
+        this.projectToDeleteId = null;
       }
     },
   },

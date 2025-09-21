@@ -1,7 +1,8 @@
 <template>
-  <div class="row justify-content-center mt-5">
-    <div class="col-lg-5 col-md-7 col-sm-9">
-      <div class="card">
+  <div class="container d-flex align-items-center justify-content-center min-vh-100">
+    <div class="row justify-content-center w-100">
+      <div class="col-lg-5 col-md-7 col-sm-9">
+        <div class="card">
         <div class="card-body p-4">
           <h1 class="card-title text-center mb-4">Login</h1>
           <form @submit.prevent="login">
@@ -22,6 +23,7 @@
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script>
