@@ -7,11 +7,19 @@
     <form v-if="showCreateForm" @submit.prevent="createTask" class="card card-body my-3">
       <div class="mb-2">
         <label for="name" class="form-label">Name:</label>
-        <input type="text" id="name" class="form-control" v-model="newTask.name" required>
+        <input type="text" id="title" class="form-control" v-model="newTask.title" required>
       </div>
       <div class="mb-2">
         <label for="description" class="form-label">Description:</label>
         <textarea id="description" class="form-control" v-model="newTask.description" required></textarea>
+      </div>
+      <div class="mb-2">
+        <label for="status" class="form-label">Status:</label>
+        <select id="status" class="form-select" v-model="newTask.status">
+          <option value="todo">To Do</option>
+          <option value="in_progress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
       </div>
       <button type="submit" class="btn btn-sm btn-success">Create</button>
     </form>
@@ -51,9 +59,10 @@ export default {
       searchQuery: '',
       showCreateForm: false,
       newTask: {
-        name: '',
+        title: '',
         description: '',
-        projectId: this.projectId,
+        status: 'todo', // Default status
+        project_id: this.projectId,
       },
     };
   },
@@ -134,8 +143,9 @@ export default {
           }
           throw new Error(errorMessage);
         }
-        this.newTask.name = '';
+        this.newTask.title = '';
         this.newTask.description = '';
+        this.newTask.status = 'todo'; // Reset status to default
         this.showCreateForm = false;
         await this.fetchTasks();
         this.toast.success('Task created successfully');
