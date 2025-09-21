@@ -6,10 +6,12 @@ const getAllProjects = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
+    const creatorId = req.user.id;
 
     const { count, rows: projects } = await Project.findAndCountAll({
       limit,
       offset,
+      where: { creatorId },
     });
 
     res.json({
@@ -30,6 +32,9 @@ const getProjectById = async (req, res) => {
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
     }
+    if (project.creatorId !== req.user.id) {
+      return res.status(403).json({ error: 'Forbidden: You do not have access to this project.' });
+    }
     res.json(project);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -39,8 +44,8 @@ const getProjectById = async (req, res) => {
 const createProject = async (req, res) => {
   try {
     const { name, description } = req.body;
-    const userId = req.user.id; // Get userId from authenticated user
-    const project = await Project.create({ name, description, userId });
+    const creatorId = req.user.id; // Get userId from authenticated user
+    const project = await Project.create({ name, description, creatorId });
     res.status(201).json(project);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -49,12 +54,9 @@ const createProject = async (req, res) => {
 
 const updateProject = async (req, res) => {
   try {
-    const { id } = req.params;
     const { name, description } = req.body;
-    const project = await Project.findByPk(id);
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
-    }
+    const project = req.project; // Get project from isProjectCreator middleware
+
     await project.update({ name, description });
     res.json(project);
   } catch (error) {
@@ -64,11 +66,7 @@ const updateProject = async (req, res) => {
 
 const deleteProject = async (req, res) => {
   try {
-    const { id } = req.params;
-    const project = await Project.findByPk(id);
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
-    }
+    const project = req.project; // Get project from isProjectCreator middleware
     await project.destroy();
     res.status(204).send();
   } catch (error) {

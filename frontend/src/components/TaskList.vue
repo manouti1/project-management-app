@@ -9,10 +9,9 @@
       </select>
     </div>
     <div class="mb-3">
-      <div class="input-group">
-        <input type="text" class="form-control" placeholder="New task title" v-model="newTaskTitle" @keyup.enter="createTask">
-        <button class="btn btn-primary" @click="createTask">Add Task</button>
-      </div>
+      <input type="text" class="form-control mb-2" placeholder="New task title" v-model="newTask.title" @keyup.enter="createTask">
+      <textarea class="form-control form-control-sm" placeholder="Description (optional)" v-model="newTask.description"></textarea>
+      <button class="btn btn-primary btn-sm mt-2" @click="createTask">Add Task</button>
     </div>
 
     <div v-if="tasks.length" class="table-responsive">
@@ -20,13 +19,16 @@
         <thead>
           <tr>
             <th>Task</th>
+            <th>Description</th>
             <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="task in tasks" :key="task.id">
             <template v-if="editingTaskId === task.id">
               <td><input type="text" class="form-control form-control-sm" v-model="editedTask.title"></td>
+              <td><textarea class="form-control form-control-sm" v-model="editedTask.description"></textarea></td>
               <td>
                 <select class="form-select form-select-sm" v-model="editedTask.status">
                   <option value="todo">To Do</option>
@@ -41,6 +43,7 @@
             </template>
             <template v-else>
               <td>{{ task.title }}</td>
+              <td>{{ task.description }}</td>
               <td>{{ task.status }}</td>
               <td>
                 <button class="btn btn-secondary btn-sm me-2" @click="editTask(task)">Edit</button>
@@ -96,7 +99,10 @@ export default {
       editedTask: {}, // To hold the data of the task being edited
       showDeleteTaskModal: false, // Control visibility of delete confirmation modal
       taskToDeleteId: null, // Store the ID of the task to be deleted
-      newTaskTitle: '', // New data property for the new task title
+      newTask: {
+        title: '',
+        description: '',
+      },
     };
   },
   setup() {
@@ -135,12 +141,17 @@ export default {
       }
     },
     async createTask() {
-      if (!this.newTaskTitle.trim()) {
+      if (!this.newTask.title.trim()) {
         this.toast.error('Task title cannot be empty.');
         return;
       }
       try {
         const token = localStorage.getItem('token');
+        if (!this.authStore.user) {
+          this.toast.error('You must be logged in to create a task.');
+          this.authStore.logout();
+          return;
+        }
         const response = await fetch('http://localhost:3000/api/tasks', {
           method: 'POST',
           headers: {
@@ -148,8 +159,9 @@ export default {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            title: this.newTaskTitle,
-            project_id: this.projectId, // Changed to snake_case
+            title: this.newTask.title,
+            description: this.newTask.description,
+            project_id: parseInt(this.projectId, 10), // Ensure project_id is an integer
             status: 'todo', // Added default status
           }),
         });
@@ -173,7 +185,8 @@ export default {
 
         const newTask = await response.json();
         this.tasks.push(newTask);
-        this.newTaskTitle = ''; // Clear the input field
+        this.newTask.title = ''; // Clear the input fields
+        this.newTask.description = '';
         this.toast.success('Task created successfully');
       } catch (error) {
         this.toast.error(error.message);
@@ -190,13 +203,20 @@ export default {
     async updateTask() {
       try {
         const token = localStorage.getItem('token');
+        // Only send fields that are part of the Task model
+        const updatePayload = {
+          title: this.editedTask.title,
+          status: this.editedTask.status,
+          description: this.editedTask.description,
+          project_id: parseInt(this.projectId, 10),
+        };
         const response = await fetch(`http://localhost:3000/api/tasks/${this.editedTask.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify(this.editedTask),
+          body: JSON.stringify(updatePayload),
         });
 
         if (response.status === 401 || response.status === 403) {

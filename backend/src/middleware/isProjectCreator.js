@@ -2,24 +2,24 @@ const { Project } = require('../models');
 
 const isProjectCreator = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const project = await Project.findByPk(id);
+    const projectId = req.params.id;
+    const userId = req.user.id; // Assuming auth middleware sets req.user
+
+    const project = await Project.findByPk(projectId);
 
     if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+      return res.status(404).json({ message: 'Project not found' });
     }
 
-    console.log('isProjectCreator Middleware: Project User ID:', project.userId);
-    console.log('isProjectCreator Middleware: Request User ID (from token):', req.user.id);
-
-    if (project.userId !== req.user.id) {
-      return res.status(403).json({ error: 'Forbidden: You are not the creator of this project' });
+    if (project.creatorId !== userId) {
+      return res.status(403).json({ message: 'Forbidden: You are not the creator of this project.' });
     }
+
+    req.project = project; // Pass the found project to the next middleware/handler
 
     next();
   } catch (error) {
-    console.error('isProjectCreator Middleware Error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: 'Server error while checking project ownership.' });
   }
 };
 

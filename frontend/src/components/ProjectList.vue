@@ -18,7 +18,7 @@
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
       <div class="col" v-for="project in projects" :key="project.id">
         <div class="card h-100"> <!-- Added h-100 for consistent card height -->
-          <div class="card-body">
+          <div class="card-body d-flex flex-column">
             <div v-if="editingProjectId === project.id">
               <form @submit.prevent="updateProject" class="mb-3">
                 <div class="mb-3">
@@ -63,7 +63,9 @@
             </div>
             <button type="submit" class="btn btn-sm btn-success">Create Task</button>
           </form>
-          <TaskList :project-id="project.id" />
+          <div class="task-list-wrapper mt-3">
+            <TaskList :project-id="project.id" :key="taskListKey[project.id] || 0" />
+          </div>
         </div> <!-- Closes card-body -->
       </div> <!-- Closes card h-100 -->
     </div> <!-- Closes col -->
@@ -121,10 +123,11 @@ export default {
         status: 'todo',
       },
       currentPage: 1,
-      projectsPerPage: 5, // You can adjust this value
+      projectsPerPage: 6,
       totalProjects: 0,
       showDeleteProjectModal: false, // Control visibility of delete confirmation modal
       projectToDeleteId: null, // Store the ID of the project to be deleted
+      taskListKey: {}, // Used to force re-render of TaskList component
     };
   },
   setup() {
@@ -142,8 +145,7 @@ export default {
   },
   methods: {
     toggleCreateTaskForm(projectId) {
-      // Use Vue.set to ensure reactivity for new properties
-      this.$set(this.showCreateTaskForm, projectId, !this.showCreateTaskForm[projectId]);
+      this.showCreateTaskForm[projectId] = !this.showCreateTaskForm[projectId];
       // Reset newTask when toggling form
       this.newTask = {
         title: '',
@@ -176,7 +178,7 @@ export default {
         }
         const data = await response.json();
         this.projects = data.projects;
-        this.totalProjects = data.total;
+        this.totalProjects = data.totalProjects;
       } catch (error) {
         this.toast.error(error.message);
       }
@@ -219,13 +221,18 @@ export default {
     async createTask(projectId) {
       try {
         const token = localStorage.getItem('token');
+        if (!this.authStore.user) {
+          this.toast.error('You must be logged in to create a task.');
+          this.authStore.logout();
+          return;
+        }
         const response = await fetch('http://localhost:3000/api/tasks', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify({ ...this.newTask, project_id: projectId }),
+          body: JSON.stringify({ ...this.newTask, project_id: parseInt(projectId, 10) }),
         });
         if (response.status === 401 || response.status === 403) {
           this.toast.error('Session expired. Please login again.');
@@ -248,9 +255,9 @@ export default {
           description: '',
           status: 'todo',
         };
-        this.$set(this.showCreateTaskForm, projectId, false);
+        this.showCreateTaskForm[projectId] = false;
         // Re-fetch projects to update the task list for the specific project
-        await this.fetchProjects();
+        this.taskListKey[projectId] = (this.taskListKey[projectId] || 0) + 1;
         this.toast.success('Task created successfully');
       } catch (error) {
         this.toast.error(error.message);
@@ -308,7 +315,7 @@ export default {
         // Find the index of the updated project and replace it
         const index = this.projects.findIndex(p => p.id === this.editedProject.id);
         if (index !== -1) {
-          this.$set(this.projects, index, { ...this.editedProject });
+          this.projects[index] = { ...this.editedProject };
         }
 
         this.toast.success('Project updated successfully');
@@ -363,4 +370,10 @@ export default {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.task-list-wrapper {
+  flex-grow: 1;
+  overflow-y: auto;
+  min-height: 0; /* Prevents the container from shrinking to zero in a flex context */
+}
+</style>

@@ -10,7 +10,7 @@ const createTaskValidator = [
 const updateTaskValidator = [
   body('title').notEmpty().withMessage('Task title is required'),
   body('status').isIn(['todo', 'in_progress', 'done']).withMessage('Invalid status'),
-  body('project_id').isInt().withMessage('Project ID must be an integer'),
+  body('project_id').optional().isInt().withMessage('Project ID must be an integer'),
 ];
 
 module.exports = {
